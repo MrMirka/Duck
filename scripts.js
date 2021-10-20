@@ -29,6 +29,10 @@ let camera, scene, renderer;
 
 			const clock = new THREE.Clock();
 
+			let oceanShader;
+
+			const HdriPath = './studio_small_04_256.hdr';
+
 
 			init();
 			
@@ -50,13 +54,17 @@ let camera, scene, renderer;
 				// renderer
 				renderer = new THREE.WebGLRenderer( { alpha:false, antialias: true } );
 				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+				renderer.toneMappingExposure = 0.2;
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				document.body.appendChild( renderer.domElement );
 
 				// scene
 				scene = new THREE.Scene();
-				let fog2 = new THREE.FogExp2(0x000000,0.001);
-				scene.fog =fog2;
+				let fog2 = new THREE.FogExp2(0x000000,0.01);
+				//scene.fog =fog2;
+				//scene.background = new THREE.Color(0x0E0E0E);
 				
 
 				wave = new THREE.Object3D();
@@ -78,40 +86,51 @@ let camera, scene, renderer;
 				cameraControls.update();
 				
 
-				//FLY
+
+				//MAKE Mirror
 				/*
-				fly = new FlyControls( camera, renderer.domElement );
-
-				fly.movementSpeed = 1500;
-				fly.domElement = renderer.domElement;
-				fly.rollSpeed = Math.PI / 12;
-				fly.autoForward = false;
-				//fly.dragToLook = false;
-				*/
-
-				
 				for(let i = 0; i < 30; i+=10){
 					for(let j = 0; j< 30; j+=10){
 						makeMirror(10,10, new THREE.Vector3(i,j,0))
 					}
 				}
+				*/
 
 				
 
-				// reflectors/mirrors
 
 				const axesHelper = new THREE.AxesHelper( 5 );
 				scene.add( axesHelper );
 			
 
                 let loader = new GLTFLoader();
-                loader.load('duck.glb', function(gltf) {
+                loader.load('duck2.glb', function(gltf) {
                     duck = gltf.scene.children[0];
                     duck.scale.set(.6, .6, .6);
 					duck.rotation.z = .4;
-					duck.position.set(-33,0,-34);
+					duck.position.set(-33,22,-34);
                     scene.add(duck);
-        
+					addWawe(duck.position);
+
+					//shadow
+					let loader = new THREE.TextureLoader();
+					loader.load('duck_shadow.png', (texture) =>{
+						const geo = new THREE.PlaneGeometry(50,50);
+						const material = new THREE.MeshBasicMaterial( { map: texture } );
+						material.transparent = true;
+						material.opacity = 1;
+						const mesh = new THREE.Mesh(geo, material);
+						mesh.rotation.x = -Math.PI/2;
+						scene.add(mesh);
+
+						const hdri = new RGBELoader();
+						hdri.load( HdriPath, function ( texture ) {
+							texture.mapping = THREE.EquirectangularReflectionMapping;
+							texture.rotation = Math.PI/3.2;
+							scene.environment = texture;
+							renderer.render( scene, camera );
+						});
+					});
                 });
 
 
@@ -119,6 +138,7 @@ let camera, scene, renderer;
 
 				
 				// lights
+				/*
 				const mainLight = new THREE.PointLight( 0xcccccc, 1.5, 250 );
 				mainLight.position.y = 60;
 				scene.add( mainLight );
@@ -134,6 +154,7 @@ let camera, scene, renderer;
 				const blueLight = new THREE.PointLight( 0x7f7fff, 0.25, 1000 );
 				blueLight.position.set( 0, 50, 550 );
 				scene.add( blueLight );
+				*/
 
 				window.addEventListener( 'resize', onWindowResize );
 
@@ -168,10 +189,13 @@ let camera, scene, renderer;
 				});
 
 				if(duck != undefined){
-					duck.rotation.y = Math.sin(timer*0.6) * 0.03;
-					duck.rotation.z = Math.cos(timer*0.6) * 0.02;
+					duck.rotation.y = Math.sin(timer*0.36) * 0.03;
+					duck.rotation.z = Math.cos(timer*0.36) * 0.02;
 				}
-			
+				if(oceanShader != undefined)
+				oceanShader.uniforms.iTime.value = clock.getElapsedTime();
+
+
 				renderer.render( scene, camera );
 				
 			}
@@ -187,7 +211,7 @@ let camera, scene, renderer;
 					clipBias: 0.003,
 					textureWidth: window.innerWidth * window.devicePixelRatio,
 					textureHeight: window.innerHeight * window.devicePixelRatio,
-					color: 0xFCBE21
+					color: 0xFF8C00
 				} );
 				verticalMirror.position.sub(position);
 				scene.add(verticalMirror);
@@ -195,5 +219,20 @@ let camera, scene, renderer;
 				plates.push(verticalMirror);
 			}
 
+function addWawe(position){
 
-		//	return( base < 0.5 ? ( 2.0 * base * blend ) : ( 1.0 - 2.0 * ( 1.0 - base ) * ( 1.0 - blend ) ) );
+	let ocean = new THREE.PlaneGeometry(3000,3000);
+	oceanShader  = new THREE.ShaderMaterial({
+		vertexShader: document.getElementById( 'vertexshader' ).textContent,
+		fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
+		uniforms: {
+			iTime: { value: 0.0 }
+		},
+		side:THREE.DoubleSide
+	});
+
+	let meshOcean = new THREE.Mesh(ocean, oceanShader);
+	meshOcean.rotation.set(-Math.PI/2,0,0);
+	meshOcean.position.sub(position.normalize());
+	scene.add(meshOcean);
+}

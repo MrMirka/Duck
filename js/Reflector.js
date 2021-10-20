@@ -259,7 +259,7 @@ Reflector.ReflectorShader = {
 			#include <logdepthbuf_fragment>
 
 			vec4 base = texture2DProj( tDiffuse, vUv );
-			gl_FragColor = vec4( blendOverlay( base.rgb, color ), 1. );
+			gl_FragColor = vec4( blendOverlay( base.rgb, (color*1.3) ), 1. );
 
 		}`
 };
